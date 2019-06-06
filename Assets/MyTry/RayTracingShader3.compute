@@ -319,8 +319,8 @@ RayHit Trace(Ray ray)
 
 	
 
-	//DrawTrianglePyramid(ray, bestHit);
-	DrawSampleTriangle(ray, bestHit);
+	DrawTrianglePyramid(ray, bestHit);
+	//DrawSampleTriangle(ray, bestHit);
 
 
 
@@ -340,14 +340,14 @@ float3 Shade(inout Ray ray, RayHit hit)
 		ray.direction = reflect(ray.direction, hit.normal);
 		ray.energy *= hit.specular;
 
-		// Shadow test ray
-		bool shadow = false;
-		Ray shadowRay = CreateRay(hit.position + hit.normal * 0.001f, -1 * _DirectionalLight.xyz);
-		RayHit shadowHit = Trace(shadowRay);
-		if (shadowHit.distance != 1.#INF)
-		{
-			return float3(0.0f, 0.0f, 0.0f);
-		}
+		//// Shadow test ray
+		//bool shadow = false;
+		//Ray shadowRay = CreateRay(hit.position + hit.normal * 0.001f, -1 * _DirectionalLight.xyz);
+		//RayHit shadowHit = Trace(shadowRay);
+		//if (shadowHit.distance != 1.#INF)
+		//{
+		//	return float3(0.0f, 0.0f, 0.0f);
+		//}
 
 		// Return a diffuse-shaded color
 		return saturate(dot(hit.normal, _DirectionalLight.xyz) * -1) * _DirectionalLight.w * hit.albedo;
