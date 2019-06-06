@@ -27,8 +27,6 @@ public class RayTracingMaster2 : MonoBehaviour
         public Vector3 specular;
     };
 
- 
-
 
     private void Awake()
     {
@@ -39,12 +37,9 @@ public class RayTracingMaster2 : MonoBehaviour
     private void OnEnable()
     {
         _currentSample = 0;
-        SetUpScene();
     }
     private void OnDisable()
     {
-        if (_sphereBuffer != null)
-            _sphereBuffer.Release();
     }
 
     private void Update()
@@ -67,53 +62,7 @@ public class RayTracingMaster2 : MonoBehaviour
         }
     }
 
-    private void SetUpScene()
-    {
-        List<Sphere> spheres = new List<Sphere>();
-
-        // Add a number of random spheres
-        for (int i = 0; i < SpheresMax; i++)
-        {
-            Sphere sphere = new Sphere();
-
-            // Radius and radius
-            sphere.radius = 50;
-                //SphereRadius.x + Random.value * (SphereRadius.y - SphereRadius.x);
-            Vector2 randomPos = Random.insideUnitCircle * SpherePlacementRadius;
-            sphere.position = Vector3.zero;
-                //new Vector3(randomPos.x, sphere.radius, randomPos.y);
-
-            // Reject spheres that are intersecting others
-            foreach (Sphere other in spheres)
-            {
-                float minDist = sphere.radius + other.radius;
-                if (Vector3.SqrMagnitude(sphere.position - other.position) < minDist * minDist)
-                    goto SkipSphere;
-            }
-
-            // Albedo and specular color
-            Color color = Random.ColorHSV();
-            bool metal = Random.value < 0.5f;
-            metal = true;
-            sphere.albedo = metal ? Vector4.zero : new Vector4(color.r, color.g, color.b);
-            sphere.specular = metal ? new Vector4(color.r, color.g, color.b) : new Vector4(0.04f, 0.04f, 0.04f);
-
-            // Add the sphere to the list
-            spheres.Add(sphere);
-
-        SkipSphere:
-            continue;
-        }
-
-        // Assign to compute buffer
-        if (_sphereBuffer != null)
-            _sphereBuffer.Release();
-        if (spheres.Count > 0)
-        {
-            _sphereBuffer = new ComputeBuffer(spheres.Count, 40);
-            _sphereBuffer.SetData(spheres);
-        }
-    }
+    
 
 
     private void SetShaderParameters()
@@ -126,9 +75,7 @@ public class RayTracingMaster2 : MonoBehaviour
         Vector3 l = DirectionalLight.transform.forward;
         RayTracingShader.SetVector("_DirectionalLight", new Vector4(l.x, l.y, l.z, DirectionalLight.intensity));
 
-        if (_sphereBuffer != null)
-            RayTracingShader.SetBuffer(0, "_Spheres", _sphereBuffer);
-
+       
     }
 
     private void InitRenderTexture()
@@ -172,7 +119,6 @@ public class RayTracingMaster2 : MonoBehaviour
     }
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
     {
-
         SetShaderParameters();
         Render(destination);
     }
