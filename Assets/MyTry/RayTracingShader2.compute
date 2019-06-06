@@ -77,50 +77,69 @@ RayHit CreateRayHit()
 }
 
 
-void IntersectGroundPlane(Ray ray, inout RayHit bestHit)
-{
-	// Calculate distance along the ray where the ground plane is intersected
-	float t = -ray.origin.y / ray.direction.y;
-	if (t > 0 && t < bestHit.distance)
-	{
-		bestHit.distance = t;
-		bestHit.position = ray.origin + t * ray.direction;
-		bestHit.normal = float3(0.0f, 1.0f, 0.0f);
-		bestHit.albedo = 0.8f;
-		bestHit.specular = 0.3f;
-	}
-}
+
+static const int colorBlack = 0;
+static const int colorWhite = 1;
+static const int colorPurple = 2;
+static const int normal = 0;
+static const int reverseNormal = 1;
 
 
-void IntersectSphere(Ray ray, inout RayHit bestHit, Sphere sphere)
-{
+//void IntersectGroundPlane(Ray ray, inout RayHit bestHit)
+//{
+//	// Calculate distance along the ray where the ground plane is intersected
+//	float t = -ray.origin.y / ray.direction.y;
+//	if (t > 0 && t < bestHit.distance)
+//	{
+//		bestHit.distance = t;
+//		bestHit.position = ray.origin + t * ray.direction;
+//		bestHit.normal = float3(0.0f, 1.0f, 0.0f);
+//		bestHit.albedo = 0.8f;
+//		bestHit.specular = 0.3f;
+//	}
+//}
 
-	float3 d = ray.origin - sphere.position;
-	float p1 = -dot(ray.direction, d);
-	float p2sqr = p1 * p1 - dot(d, d) + sphere.radius * sphere.radius;
-	if (p2sqr < 0)
-		return;
-	float p2 = sqrt(p2sqr);
-	float t = p1 - p2 > 0 ? p1 - p2 : p1 + p2;
-	if (t > 0 && t < bestHit.distance)
-	{
-		bestHit.distance = t;
-		bestHit.position = ray.origin + t * ray.direction;
-		bestHit.normal = normalize(bestHit.position - sphere.position);
-		bestHit.albedo = sphere.albedo;
-		bestHit.specular = sphere.specular;
-	}
-}
 
+//void IntersectSphere(Ray ray, inout RayHit bestHit, Sphere sphere)
+//{
+//
+//	float3 d = ray.origin - sphere.position;
+//	float p1 = -dot(ray.direction, d);
+//	float p2sqr = p1 * p1 - dot(d, d) + sphere.radius * sphere.radius;
+//	if (p2sqr < 0)
+//		return;
+//	float p2 = sqrt(p2sqr);
+//	float t = p1 - p2 > 0 ? p1 - p2 : p1 + p2;
+//	if (t > 0 && t < bestHit.distance)
+//	{
+//		bestHit.distance = t;
+//		bestHit.position = ray.origin + t * ray.direction;
+//		bestHit.normal = normalize(bestHit.position - sphere.position);
+//		bestHit.albedo = sphere.albedo;
+//		bestHit.specular = sphere.specular;
+//	}
+//}
 
 
 static const float EPSILON = 1e-8;
-void IntersectTriangle_MT97(Ray ray, inout RayHit bestHit, float3 vert0, float3 vert1, float3 vert2, int mod, int col)
+void IntersectTriangle(Ray ray, inout RayHit bestHit, float3 vert0, float3 vert1, float3 vert2, int normalMod, int colorMod)
 {
 	float t, u, v;
 	// find vectors for two edges sharing vert0
-	float3 edge1 = vert1 - vert0;
-	float3 edge2 = vert2 - vert0;
+	
+	float3 edge1, edge2,tvec;	
+
+	if (normalMod == normal) {
+		edge1 = vert1 - vert0;
+	 edge2 = vert2 - vert0;
+	 tvec = ray.origin - vert0;
+	}
+	else {
+		edge1 = vert0 - vert1;
+		edge2 = vert0 - vert2;
+		tvec = ray.origin - vert0;
+
+	}
 	// begin calculating determinant - also used to calculate U parameter
 	float3 pvec = cross(ray.direction, edge2);
 	// if determinant is near zero, ray lies in plane of triangle
@@ -130,7 +149,6 @@ void IntersectTriangle_MT97(Ray ray, inout RayHit bestHit, float3 vert0, float3 
 		return ;
 	float inv_det = 1.0f / det;
 	// calculate distance from vert0 to ray origin
-	float3 tvec = ray.origin - vert0;
 	// calculate U parameter and test bounds
 	u = dot(tvec, pvec) * inv_det;
 	if (u < 0.0 || u > 1.0f)
@@ -149,66 +167,37 @@ void IntersectTriangle_MT97(Ray ray, inout RayHit bestHit, float3 vert0, float3 
 	{
 		bestHit.distance = t;
 		bestHit.position = ray.origin + t * ray.direction;
-		if(mod==0)
-		bestHit.normal = normalize(cross(vert0 - vert1, vert0 - vert2));
+
+
+		if(normalMod == normal)
+		bestHit.normal = normalize(cross(vert1 - vert0, vert2 - vert0));
 		else
-		bestHit.normal = normalize(cross(vert0 - vert2, vert0 - vert1));
-		if(col==1){
-		bestHit.albedo = float3(0.8f,1, 1);
-		bestHit.specular = float3(1, 1, 1)  *1.5;
-		}
-		else {
+		bestHit.normal = normalize(cross(vert0 - vert1, vert0 - vert2));
+
+		if(colorMod == colorBlack){		
 			bestHit.albedo = float3(0, 0, 0);
 			bestHit.specular = float3(0, 0, 0);
 		}
+		else if (colorMod == colorWhite) {
+			bestHit.albedo = float3(1, 1, 1)  ;
+			//bestHit.albedo = float3(0.8f, 0.5f, 0.8f);
+
+			bestHit.specular = float3(1, 1, 1) *0.5f ;
+		}
+		else {
+			bestHit.albedo = float3(0.8f, 0.2f, 0.8f);
+			//bestHit.specular = float3(1, 1, 1)  *1.5;
+			bestHit.specular = float3(0, 0, 0);
+
+		}
+
+
 	}
 
 
 }
 
-// Find the point of intersection between
-// the lines p1 --> p2 and p3 --> p4.
-float3 FindIntersection(	float3 p1, float3 p2, float3 p3, float3 p4)
-{
-	// Get the segments' parameters.
-	float dx12 = p2.x - p1.x;
-	float dy12 = p2.y - p1.y;
-	float dz12 = p2.z - p1.z;
-
-	float dx34 = p4.x - p3.x;
-	float dy34 = p4.y - p3.y;
-	float dz34 = p4.z - p3.z;
-
-
-	// Solve for t1 and t2
-	float denominator =
-
-		-((dy12*dz34 - dz12 * dy34) - (dx12*dz34 - dx34 * dz12) + (dx12*dy34 - dx34 * dy12));
-
-//(dy12 * dx34 - dx12 * dy34);
-
-	dx12 = (p1.x - p3.x);
-	dy12 = (p3.y - p1.y);
-		dz12 = p1.z - p3.z;
-	float t1 = 
-		((dy12*dz34 - dz12 * dy34) - (dx12*dz34 - dx34 * dz12) + (dx12*dy34 - dx34 * dy12))
-
-
-		/ denominator;
-
-	
-
-
-
-	// Find the point of intersection.
-	float3 intersection =  float3(p1.x + dx12 * t1, p1.y + dy12 * t1, p1.z + dz12*t1);
-
-	return intersection;
-	
-}
-
-
-void ScalePolygon(float3 old_points[5], float offset, int edgeCount, out float3 enlarged_points[5])
+void ScalePolygon(float3 old_points[5], float offset, out float3 enlarged_points[5])
 {
 	float3 P = float3(0, 0, 0);
 		for (int j = 0; j < 5; j++)
@@ -228,109 +217,65 @@ void ScalePolygon(float3 old_points[5], float offset, int edgeCount, out float3 
 }
 
 
-void GetSmalledPolygon(float3 old_points[5], float offset, int edgeCount, out float3 enlarged_points[5])
+
+
+
+void IntersectPentagon(Ray ray, inout RayHit bestHit, float3 vert0, float3 vert1, float3 vert2, float3 vert3, float3 vert4, int normalMod, int colorMod)
 {
-	//float3 enlarged_points[5];
-	int num_points = 5;
-	for (int j = 0; j < num_points; j++)
-	{
-		// Find the new location for point j.
-		// Find the points before and after j.
-		int i = (j - 1);
-		if (i < 0) i += num_points;
-		int k = (j + 1) % num_points;
-
-		// Move the points by the offset.
-		float3 v1 = float3(
-			old_points[j].x - old_points[i].x,
-			old_points[j].y - old_points[i].y,
-			old_points[j].z - old_points[i].z);
-
-		v1 = normalize(v1);
-		v1 *= offset;
-		float3 n1 = float3(v1.z, -v1.y, v1.x);  //
 
 
-		float3 pij1 = float3(
-			(float)(old_points[i].x + n1.x),
-			(float)(old_points[i].y + n1.y),
-			(float)(old_points[i].z + n1.z)
-			);
-
-		float3 pij2 = float3(
-			(float)(old_points[j].x + n1.x),
-			(float)(old_points[j].y + n1.y),
-			(float)(old_points[j].z + n1.z)
-			);
-
-		float3 v2 = float3(
-			old_points[k].x - old_points[j].x,
-			old_points[k].y - old_points[j].y,
-			old_points[k].z - old_points[j].z
-			);
-		v2 = normalize(v2);
-		v2 *= offset;
-
-		float3 n2 = float3(v2.z, -v2.y, v2.x);
-
-		float3 pjk1 = float3(
-			(float)(old_points[j].x + n2.x),
-			(float)(old_points[j].y + n2.y),
-			(float)(old_points[j].z + n2.z)
-			);
-
-		float3 pjk2 = float3(
-			(float)(old_points[k].x + n2.x),
-			(float)(old_points[k].y + n2.y),
-			(float)(old_points[k].z + n2.z)
-			);
-
-		// See where the shifted lines ij and jk intersect.
-		float3 poi = FindIntersection(pij1, pij2, pjk1, pjk2);
-		enlarged_points[j] = poi;
-	}
-
-//	return enlarged_points;
-}
+	
+	IntersectTriangle(ray, bestHit, vert0, vert1, vert2, normalMod, colorMod);
+	IntersectTriangle(ray, bestHit, vert0, vert2, vert3, normalMod, colorMod);
+	IntersectTriangle(ray, bestHit, vert0, vert3, vert4, normalMod, colorMod);
 
 
-
-void IntersectPentagon(Ray ray, inout RayHit bestHit, float3 vert0, float3 vert1, float3 vert2, float3 vert3, float3 vert4, int mod )
-{
-	IntersectTriangle_MT97(ray, bestHit, vert0, vert1, vert2, mod , 1);
-	IntersectTriangle_MT97(ray, bestHit, vert0, vert2, vert3, mod, 1);
-	IntersectTriangle_MT97(ray, bestHit, vert0, vert3, vert4, mod, 1);
 	int mult = 50;
 
 
 float3 vert[5] = {
-		vert4,
-		vert3,
-		vert2,
+		vert0,
 		vert1,
-		vert0
+		vert2,
+		vert3,
+		vert4
 	};
 	float offset = 0.95;
 	float3 newVert[5];
 
-	ScalePolygon(vert, offset,5,newVert);
-	mod = 1;
+	ScalePolygon(vert, offset,newVert);
+
+
+
+
+
+	colorMod = colorBlack;
 
 	int indexes[6] = {
-		0,1,2,3,4,0
+		0,4,3,2,1,0
+	//	0,1,2,3,4,0
 	};
 
-	for(int i = 0; i<5; i++) {
 
-	IntersectTriangle_MT97(ray, bestHit, newVert[indexes[i]], vert[indexes[i]], vert[indexes[i+1]], mod, 0);
-	IntersectTriangle_MT97(ray, bestHit,newVert[indexes[i+1]] , newVert[indexes[i]],vert[indexes[i+1]]  ,mod, 0);
+
+
+	int reverseNormalMod;
+	if (normalMod == normal)
+		reverseNormalMod = reverseNormal;
+	else
+		reverseNormalMod = normal;
+
+	for(int i = 4; i>-1; i--) {
+
+	IntersectTriangle(ray, bestHit, newVert[indexes[i]], vert[indexes[i]], vert[indexes[i+1]], reverseNormalMod, colorMod);
+	IntersectTriangle(ray, bestHit,newVert[indexes[i+1]] , newVert[indexes[i]],vert[indexes[i+1]]  , reverseNormalMod, colorMod);
 	}
 
-	mod = 1;
-	for(int i = 0; i<5; i++) {
+	
+	for (int i = 4; i > -1; i--) {
 
-	IntersectTriangle_MT97(ray, bestHit,  vert[indexes[i+1]],vert[indexes[i]], newVert[indexes[i]], mod, 0);
-	IntersectTriangle_MT97(ray, bestHit,vert[indexes[i+1]]  , newVert[indexes[i]],newVert[indexes[i+1]] ,mod, 0);
+	IntersectTriangle(ray, bestHit,  vert[indexes[i+1]],vert[indexes[i]], newVert[indexes[i]], reverseNormalMod, colorMod);
+	IntersectTriangle(ray, bestHit,vert[indexes[i+1]]  , newVert[indexes[i]],newVert[indexes[i+1]] , reverseNormalMod, colorMod);
 	}	
 
 
@@ -339,7 +284,7 @@ float3 vert[5] = {
 
 
 
-static const int multi = 50;
+static const int multi = 20;
 
 static const float PHI = 1.618;
 static float3 vertices[20] = {
@@ -370,34 +315,44 @@ static float3 vertices[20] = {
 	float3(-PHI , 1 / PHI , 0) * multi //19
 };
 //
-void IntersectDodecahedron(Ray ray, inout RayHit bestHit, int mod)
+void IntersectDodecahedron(Ray ray, inout RayHit bestHit, int normalMod,int colorMod)
 {
 
-
+	int reverseNormalMod;
+	if (normalMod == normal)
+		reverseNormalMod = reverseNormal;
+	else
+		reverseNormalMod = normal;
 	//current mod 1
 
+	IntersectPentagon(ray, bestHit, vertices[4], vertices[9], vertices[0], vertices[14], vertices[13], normalMod, colorMod); //OK
+	IntersectPentagon(ray, bestHit, vertices[5], vertices[10], vertices[9], vertices[4], vertices[18], reverseNormalMod, colorMod);//OK
+	IntersectPentagon(ray, bestHit, vertices[3], vertices[11], vertices[8], vertices[2], vertices[16], normalMod, colorMod); //OK  //reverseleyince çerçeve bozuluyor
+	IntersectPentagon(ray, bestHit, vertices[11], vertices[7], vertices[19], vertices[6], vertices[8], normalMod, colorMod); //OK //reverseleyince çerçeve bozuluyor
 
-	IntersectPentagon(ray, bestHit, vertices[4], vertices[9], vertices[0], vertices[14], vertices[13], mod); //OK
-	IntersectPentagon(ray, bestHit, vertices[5], vertices[10], vertices[9], vertices[4], vertices[18], mod);//OK
-	IntersectPentagon(ray, bestHit, vertices[3], vertices[11], vertices[8], vertices[2], vertices[16], mod); //OK
-	IntersectPentagon(ray, bestHit, vertices[11], vertices[7], vertices[19], vertices[6], vertices[8], mod); //OK
-	IntersectPentagon(ray, bestHit, vertices[6], vertices[13], vertices[14], vertices[2], vertices[8], mod); //OK
-	IntersectPentagon(ray, bestHit, vertices[2], vertices[14], vertices[0], vertices[17], vertices[16], mod);//OK
+	IntersectPentagon(ray, bestHit, vertices[6], vertices[13], vertices[14], vertices[2], vertices[8], normalMod, colorMod); //OK
 
-	mod = 0;
-	IntersectPentagon(ray, bestHit, vertices[3], vertices[16], vertices[17], vertices[1], vertices[15], mod); //Siyah
-	IntersectPentagon(ray, bestHit, vertices[7], vertices[11], vertices[3], vertices[15], vertices[12], mod);//siyah
+
+	IntersectPentagon(ray, bestHit, vertices[2], vertices[14], vertices[0], vertices[17], vertices[16], normalMod, colorMod);//OK
+
+
+
+
+
+	
+	IntersectPentagon(ray, bestHit, vertices[3], vertices[16], vertices[17], vertices[1], vertices[15], reverseNormalMod, colorMod); //Siyah
+	IntersectPentagon(ray, bestHit, vertices[7], vertices[11], vertices[3], vertices[15], vertices[12], reverseNormalMod, colorMod);//siyah
+	//
 	
 	
 	
 	
+	IntersectPentagon(ray, bestHit, vertices[7], vertices[12], vertices[5], vertices[18], vertices[19], reverseNormalMod, colorMod); //Siyah
+	IntersectPentagon(ray, bestHit, vertices[19], vertices[18], vertices[4], vertices[13], vertices[6], reverseNormalMod, colorMod); //siyah
+	IntersectPentagon(ray, bestHit, vertices[12], vertices[15], vertices[1], vertices[10], vertices[5], reverseNormalMod, colorMod); //siyah//ok
+	IntersectPentagon(ray, bestHit, vertices[1], vertices[17], vertices[0], vertices[9], vertices[10], reverseNormalMod, colorMod);//siyah //ok
 	
-		IntersectPentagon(ray, bestHit, vertices[7], vertices[12], vertices[5], vertices[18], vertices[19],mod); //Siyah
-	IntersectPentagon(ray, bestHit, vertices[19], vertices[18], vertices[4], vertices[13], vertices[6], mod); //siyah
-	IntersectPentagon(ray, bestHit, vertices[12], vertices[15], vertices[1], vertices[10], vertices[5], mod); //siyah
-	IntersectPentagon(ray, bestHit, vertices[1], vertices[17], vertices[0], vertices[9], vertices[10], mod);//siyah
-	
-	
+	//
 	
 	
 	
@@ -419,6 +374,37 @@ void IntersectDodecahedron(Ray ray, inout RayHit bestHit, int mod)
 }
 
 
+void DrawSimplePentagon(Ray ray,inout RayHit bestHit, int normalMod,int colorMod) {
+
+	float3 k0, k1, k2, k3, k4, k5;
+	k0 = float3(20, -7, 3);
+	k1 = float3(20, 0, 9);
+	k2 = float3(20, 7, 3);
+	k3 = float3(20, 3, -5);
+	k4 = float3(20, -3, -5);
+
+	IntersectPentagon(ray, bestHit, k0, k1, k2,k3,k4, normalMod, colorMod);
+}
+
+void DrawTrianglePyramid(Ray ray, inout RayHit bestHit) {
+	float3 k0, k1, k2, k3;
+	float pointMulti = 150;
+
+	k0 = float3(0, 0, 0);
+	k0 = float3(-pointMulti, -pointMulti, 0);
+	k1 = float3(pointMulti, 0, 0);
+	k2 = float3(0, pointMulti, 0);
+	k3 = float3(0, 0, pointMulti);
+	int normalMod = normal;
+	int colorMod = colorWhite;
+	IntersectTriangle(ray, bestHit, k0, k1, k2,normalMod, colorMod);
+	IntersectTriangle(ray, bestHit, k0, k3, k1, normalMod, colorMod);
+	IntersectTriangle(ray, bestHit, k0, k2, k3, normalMod, colorMod);
+	IntersectTriangle(ray, bestHit, k1, k3, k2, normalMod, colorMod);
+	
+
+}
+
 RayHit Trace(Ray ray)
 {
 	RayHit bestHit = CreateRayHit();
@@ -429,38 +415,20 @@ RayHit Trace(Ray ray)
 	_Spheres.GetDimensions(numSpheres, stride);
 	for (uint i = 0; i < numSpheres; i++)
 		IntersectSphere(ray, bestHit, _Spheres[i]);*/
-////Triangles	
-	float3 k0, k1, k2,k3,k4,k5;
-	//float pointMulti = 150;
 
-	////k0 = float3(0, 0, 0);
-	//k0 = float3(-pointMulti, -pointMulti, 0);
-	//k1 = float3(pointMulti, 0, 0);
-	//k2 = float3(0, pointMulti, 0);
-	//k3 = float3(0, 0, pointMulti);
-	//
 
-	//IntersectTriangle_MT97(ray, bestHit, k0, k1, k2,1);
-	//IntersectTriangle_MT97(ray, bestHit, k0, k3, k1, 1);
-	//IntersectTriangle_MT97(ray, bestHit, k0, k2, k3, 1);
-	//IntersectTriangle_MT97(ray, bestHit, k1, k3, k2, 1);/*
-	//
+	//Triangles		
+	//DrawTrianglePyramid(ray, bestHit);
 
 
 	//PENTAGON
+	DrawSimplePentagon(ray,bestHit, normal,colorWhite);
 
-	//k0 = float3(20, -7, 3);
-	//k1 = float3(20, 0, 9);
-	//k2 = float3(20, 7, 3);
-	//k3 = float3(20, 3, -5);
-	//k4 = float3(20, -3, -5);
-	//float polyMulti = 10;
-
-	//IntersectPentagon(ray, bestHit, k0, k1, k2,k3,k4,0);
+	
 
 	//DODECAHEDRON
-	//IntersectDodecahedron(ray, bestHit,0);
-IntersectDodecahedron(ray, bestHit,1);
+	//IntersectDodecahedron(ray, bestHit,normal, colorWhite);
+//IntersectDodecahedron(ray, bestHit,reverseNormal,colorWhite);
 
 
 
@@ -527,21 +495,6 @@ void CSMain(uint3 id : SV_DispatchThreadID)
 	for (int i = 0; i < bounces; i++)
 	{
 		RayHit hit = Trace(ray);
-		/*if (bounceSet == 0) {
-			bounceSet = 1;
-			 bounces = 5;
-			 
-
-			if (hit.distance * multi < 100)
-				bounces = 8;
-			else if (hit.distance * multi < 75)
-				bounces = 12;
-			else if (hit.distance * multi > 120)
-				bounces = 8;
-			else
-				bounces = 8;
-
-		}*/
 
 		result += ray.energy * Shade(ray, hit);
 		if (!any(ray.energy))
