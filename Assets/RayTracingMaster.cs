@@ -1,31 +1,16 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
-public class RayTracingMaster2 : MonoBehaviour
+public class RayTracingMaster : MonoBehaviour
 {
     public ComputeShader RayTracingShader;
    public Texture SkyboxTexture;
-    public Light DirectionalLight;
-
-    public Vector2 SphereRadius = new Vector2(3.0f, 8.0f);
-    public uint SpheresMax = 5;
-    public uint SquaresMax = 0;
-    
-    public float SpherePlacementRadius = 20.0f;
+    public Light PointLight;
 
     private Camera _camera;
     private float _lastFieldOfView;
     private Material _addMaterial;
     private RenderTexture _target;
     private uint _currentSample = 0;
-    private ComputeBuffer _sphereBuffer;
-
-    struct Sphere
-    {
-      public  Vector3 position;
-        public float radius;
-        public Vector3 albedo;
-        public Vector3 specular;
-    };
 
 
     private void Awake()
@@ -55,16 +40,15 @@ public class RayTracingMaster2 : MonoBehaviour
             _currentSample = 0;
             transform.hasChanged = false;
         }
-        if (DirectionalLight.transform.hasChanged)
+        if (PointLight.transform.hasChanged)
         {
             _currentSample = 0;
-            DirectionalLight.transform.hasChanged = false;
+            PointLight.transform.hasChanged = false;
         }
     }
 
-    
-
-
+  
+    //Shader parameters to send
     private void SetShaderParameters()
     {
         RayTracingShader.SetTexture(0, "_SkyboxTexture", SkyboxTexture);
@@ -72,12 +56,13 @@ public class RayTracingMaster2 : MonoBehaviour
         RayTracingShader.SetMatrix("_CameraInverseProjection", _camera.projectionMatrix.inverse);
         RayTracingShader.SetVector("_PixelOffset", new Vector2(Random.value, Random.value));
 
-        Vector3 l = DirectionalLight.transform.forward;
-        RayTracingShader.SetVector("_DirectionalLight", new Vector4(l.x, l.y, l.z, DirectionalLight.intensity));
+        Vector3 l = PointLight.transform.forward;
+        RayTracingShader.SetVector("_PointLight", new Vector4(l.x, l.y, l.z, PointLight.intensity));
 
        
     }
 
+    //if target render is empty create one
     private void InitRenderTexture()
     {
         if (_target == null || _target.width != Screen.width || _target.height != Screen.height)
@@ -87,16 +72,18 @@ public class RayTracingMaster2 : MonoBehaviour
                 _target.Release();
             // Get a render target for Ray Tracing
             _target = new RenderTexture(Screen.width, Screen.height, 0,
-                RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
-            _target.enableRandomWrite = true;
+                RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear)
+            {
+                enableRandomWrite = true
+            };
             _target.Create();
-
 
             // Reset sampling
             _currentSample = 0;
         }
     }
 
+    //Render the scene
     private void Render(RenderTexture destination)
     {
         // Make sure we have a current render target
@@ -111,12 +98,14 @@ public class RayTracingMaster2 : MonoBehaviour
 
        // Blit the result texture to the screen
         if (_addMaterial == null)
-            _addMaterial = new Material(Shader.Find("Hidden/AddShader2"));
+            _addMaterial = new Material(Shader.Find("Hidden/AddShader"));
         _addMaterial.SetFloat("_Sample", _currentSample);
         Graphics.Blit(_target, destination, _addMaterial);
         _currentSample++;
 
     }
+
+    //On each render of the sceen 
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
     {
         SetShaderParameters();

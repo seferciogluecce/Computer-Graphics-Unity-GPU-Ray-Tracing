@@ -19,12 +19,18 @@ public class MoveCamera : MonoBehaviour
         RotateWithASDQWE();
 
         if (Input.GetKeyDown(KeyCode.Escape)){
-            Application.Quit();        }
+            Application.Quit();
+        }
 
     }
 
+    void Translate(float x, float y, float z) //point transformation
+    {
+        this.transform.position += new Vector3(x, y, z);
+    }
 
-    void RotateWithASDQWE()
+
+    void RotateWithASDQWE() //Unity built in rotations
     {
         if (Input.GetKey(KeyCode.E))
         {
@@ -53,35 +59,36 @@ public class MoveCamera : MonoBehaviour
 
     }
 
-    private void MoveWithArrows()
+    private void MoveWithArrows()//point transformation
     {
         if (Input.GetKey(KeyCode.RightArrow))
         {
-            this.transform.Translate(increment * Time.deltaTime, 0, 0);
+            Translate(0, 0, increment * Time.deltaTime);
 
         }
         if (Input.GetKey(KeyCode.LeftArrow))
         {
-            this.transform.Translate(-increment * Time.deltaTime, 0, 0);
+            Translate(0, 0, -increment * Time.deltaTime);
 
         }
         if (Input.GetKey(KeyCode.UpArrow))
         {
-            this.transform.Translate(0, increment * Time.deltaTime, 0);
+            Translate(0, increment * Time.deltaTime, 0);
 
         }
         if (Input.GetKey(KeyCode.DownArrow))
         {
-            this.transform.Translate(0, -increment * Time.deltaTime, 0);
-
-        }  if (Input.GetKey(KeyCode.Keypad1))
-        {
-            this.transform.Translate(0, 0, increment * Time.deltaTime);
+           Translate(0, -increment * Time.deltaTime, 0);
 
         }
-        if (Input.GetKey(KeyCode.Keypad2))
+        if (Input.GetKey("[1]") || Input.GetKey("1"))
         {
-            this.transform.Translate(0, 0, -increment * Time.deltaTime);
+            Translate(-increment * Time.deltaTime, 0, 0);
+
+        }
+        if (Input.GetKey("[2]") || Input.GetKey("2"))           
+        {
+            Translate(increment * Time.deltaTime, 0, 0);
 
         }
     }

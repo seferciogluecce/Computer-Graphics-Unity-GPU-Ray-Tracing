@@ -5,7 +5,7 @@ RWTexture2D<float4> Result;
 float4x4 _CameraToWorld;
 float4x4 _CameraInverseProjection;
 
-float4 _DirectionalLight;
+float4 _PointLight;
 
 float2 _PixelOffset;
 
@@ -13,25 +13,11 @@ Texture2D<float4> _SkyboxTexture;
 SamplerState sampler_SkyboxTexture;
 
 static const float PI = 3.14159265f;
-static const int FF = 0;
-static const int FB = 1;
+static const int FF = 0;  //Face forward
+static const int FB = 1;  //Face backward
 
-static const int CW = 0;
-static const int CB = 1;
-
-static const int WB = 0;
-static const int WOB = 1;
-
-struct Sphere
-{
-	float3 position;
-	float radius;
-	float3 albedo;
-	float3 specular;
-};
-
-StructuredBuffer<Sphere> _Spheres;
-
+static const int CW = 0;  //Color white
+static const int CB = 1;  //Color black
 
 //-------------------------------------
 //- RAY
@@ -101,7 +87,7 @@ void IntersectTriangle(Ray ray, inout RayHit bestHit,float3 vert0, float3 vert1,
 
 	float u, v, t;
 	// find vectors for two edges sharing vert0
-	if (FaceOrientation == FB) {
+	if (FaceOrientation == FB) { //Face orientation is changed 
 		float3 temp = vert0;
 		vert0 = vert2;
 		vert2 = temp;
@@ -146,8 +132,6 @@ void IntersectTriangle(Ray ray, inout RayHit bestHit,float3 vert0, float3 vert1,
 		bestHit.position = ray.origin + t * ray.direction;
 		bestHit.normal = normalize(cross(vert1 - vert0, vert2 - vert0));
 		if (Color == CW) {
-
-		//bestHit.albedo = .8f;
 		bestHit.albedo = 1;
 		bestHit.specular = 0.9f;
 		}
@@ -161,45 +145,8 @@ void IntersectTriangle(Ray ray, inout RayHit bestHit,float3 vert0, float3 vert1,
 	}
 }
 
-
-
-
-void IntersectGroundPlane(Ray ray, inout RayHit bestHit)
-{
-	// Calculate distance along the ray where the ground plane is intersected
-	float t = -ray.origin.y / ray.direction.y;
-	if (t > 0 && t < bestHit.distance)
-	{
-		bestHit.distance = t;
-		bestHit.position = ray.origin + t * ray.direction;
-		bestHit.normal = float3(0.0f, 1.0f, 0.0f);
-		bestHit.albedo = 0.8f;
-		bestHit.specular = 0.03f;
-	}
-}
-
-void IntersectSphere(Ray ray, inout RayHit bestHit, uint sphereIndex)
-{
-	// Calculate distance along the ray where the sphere is intersected
-	Sphere sphere = _Spheres[sphereIndex];
-	float3 d = ray.origin - sphere.position;
-	float p1 = -dot(ray.direction, d);
-	float p2sqr = p1 * p1 - dot(d, d) + sphere.radius * sphere.radius;
-	if (p2sqr < 0)
-		return;
-	float p2 = sqrt(p2sqr);
-	float t = p1 - p2 > 0 ? p1 - p2 : p1 + p2;
-	if (t > 0 && t < bestHit.distance)
-	{
-		bestHit.distance = t;
-		bestHit.position = ray.origin + t * ray.direction;
-		bestHit.normal = normalize(bestHit.position - sphere.position);
-		bestHit.albedo = sphere.albedo;
-		bestHit.specular = sphere.specular;
-	}
-}
-
-void ScalePentagon(float3 old_points[5], float offset, out float3 enlarged_points[5])
+//Scale pentagon by offset, set new vertex points
+void ScalePentagon(float3 old_points[5], float offset, out float3 scaled_points[5])
 {
 	float3 P = float3(0, 0, 0);
 	for (int j = 0; j < 5; j++)
@@ -209,10 +156,12 @@ void ScalePentagon(float3 old_points[5], float offset, out float3 enlarged_point
 	P = P / 5;
 	for (int j = 0; j < 5; j++)
 	{
-		enlarged_points[j] = old_points[j] * offset + (1 - offset)*P;
+		scaled_points[j] = old_points[j] * offset + (1 - offset)*P;
 	}
 }
-void ScaleTriangle(float3 old_points[3], float offset, out float3 enlarged_points[3])
+
+//Scale triangle by offset, set new vertex points
+void ScaleTriangle(float3 old_points[3], float offset, out float3 scaled_points[3])
 {
 	float3 P = float3(0, 0, 0);
 	for (int j = 0; j < 3; j++)
@@ -222,13 +171,12 @@ void ScaleTriangle(float3 old_points[3], float offset, out float3 enlarged_point
 	P = P / 3;
 	for (int j = 0; j < 3; j++)
 	{
-		enlarged_points[j] = old_points[j] * offset + (1 - offset)*P;
+		scaled_points[j] = old_points[j] * offset + (1 - offset)*P;
 	}
 }
 
 
 void DrawTriangle(Ray ray, inout RayHit bestHit, float3 vert0,float3 vert1,float3 vert2, int FaceOrientation ) {
-
 
 	float3 vert[3]={
 		vert0,
@@ -245,10 +193,9 @@ void DrawTriangle(Ray ray, inout RayHit bestHit, float3 vert0,float3 vert1,float
 	0,1,2,0
 	};
 
+	IntersectTriangle(ray, bestHit, sclaedVert[0], sclaedVert[1], sclaedVert[2], FaceOrientation, CW); //Render triangle
 
-	IntersectTriangle(ray, bestHit, sclaedVert[0], sclaedVert[1], sclaedVert[2], FaceOrientation, CW);
-//	IntersectTriangle(ray, bestHit, sclaedVert[0], sclaedVert[1], sclaedVert[2], FB,CW);
-	for (int i = 0; i < 3; i++) {
+	for (int i = 0; i < 3; i++) { //Render inward and outward borders
 
 		IntersectTriangle(ray, bestHit, vert[indexes[i]], vert[indexes[i+1]], sclaedVert[indexes[i ]], FF, CB);
 		IntersectTriangle(ray, bestHit, sclaedVert[indexes[i ]], vert[indexes[i+1]], sclaedVert[indexes[i + 1]], FF, CB);	
@@ -278,95 +225,23 @@ void DrawPentagon(Ray ray, inout RayHit bestHit, float3 k0,float3 k1,float3 k2,f
 	0,1,2,3,4,0
 	};
 
-	IntersectTriangle(ray, bestHit, sclaedVert[0], sclaedVert[1], sclaedVert[2], FO, CW);
-	IntersectTriangle(ray, bestHit, sclaedVert[0], sclaedVert[2], sclaedVert[3], FO, CW);
-	IntersectTriangle(ray, bestHit, sclaedVert[0], sclaedVert[3], sclaedVert[4], FO, CW);
+	//Render each triangle that constructs the pentagon
+	for (int i = 1; i < 4; i++) {  //Render inward and outward borders
+		IntersectTriangle(ray, bestHit, sclaedVert[0], sclaedVert[i], sclaedVert[i + 1], FO, CW);
+	}
 
-	for (int i = 0; i < 5; i++) {
+	for (int i = 0; i < 5; i++) {  //Render inward and outward borders
 
 		IntersectTriangle(ray, bestHit, sclaedVert[indexes[i]],vert[indexes[i + 1]],  vert[indexes[i]],FB, CB);
 		IntersectTriangle(ray, bestHit, sclaedVert[indexes[i + 1]], vert[indexes[i + 1]], sclaedVert[indexes[i]], FB, CB);
-
-		IntersectTriangle(ray, bestHit, vert[indexes[i]], vert[indexes[i + 1]], sclaedVert[indexes[i]], FB, CB); //ok saydam taraf
-		IntersectTriangle(ray, bestHit, sclaedVert[indexes[i]], vert[indexes[i + 1]], sclaedVert[indexes[i + 1]], FB, CB);//ok saydam taraf
-	}
-
-}
-
-void DrawSamplePentagon(Ray ray, inout RayHit bestHit) {
-	
-	float3 k0, k1, k2, k3, k4;
-	k0 = float3(20, -7, 3);
-	k1 = float3(20, 0, 9);
-	k2 = float3(20, 7, 3);
-	k3 = float3(20, 3, -5);
-	k4 = float3(20, -3, -5);
-
-	float3 vert[5] = {
-		k0,
-		k1,
-		k2,
-		k3,
-		k4
-	};
-	float3 sclaedVert[5];
-	float offset = 0.95;
-	ScalePentagon(vert, offset, sclaedVert);
-
-	int indexes[6] = {
-	0,1,2,3,4,0
-	};
-
-	IntersectTriangle(ray, bestHit, sclaedVert[0], sclaedVert[1], sclaedVert[2], FF, CW);
-	IntersectTriangle(ray, bestHit, sclaedVert[0], sclaedVert[2], sclaedVert[3], FF, CW);
-	IntersectTriangle(ray, bestHit, sclaedVert[0], sclaedVert[3], sclaedVert[4], FF, CW);
-
-
-	for (int i = 0; i < 5; i++) {
-
-		IntersectTriangle(ray, bestHit, sclaedVert[indexes[i]],vert[indexes[i + 1]],  vert[indexes[i]],FB, CB);
-		IntersectTriangle(ray, bestHit, sclaedVert[indexes[i + 1]], vert[indexes[i + 1]], sclaedVert[indexes[i]], FB, CB);
-
-		IntersectTriangle(ray, bestHit, vert[indexes[i]], vert[indexes[i + 1]], sclaedVert[indexes[i]], FB, CB); //ok saydam taraf
-		IntersectTriangle(ray, bestHit, sclaedVert[indexes[i]], vert[indexes[i + 1]], sclaedVert[indexes[i + 1]], FB, CB);//ok saydam taraf
-	}
-
-}
-
-void DrawSampleTriangle(Ray ray, inout RayHit bestHit) {
-	float3 vert0 = float3(0, 0, 0)*5;
-	float3 vert1 = float3(10, 5, 0) * 5;
-	float3 vert2 = float3(-10, 5, 0) * 5;
-
-
-	float3 vert[3]={
-		vert0,
-		vert1,
-		vert2
-	};
-	float3 sclaedVert[3];
-	float offset = 0.95;
-	ScaleTriangle(vert, offset, sclaedVert);
-
-	int indexes[4] = {
-	0,1,2,0
-	};
-
-
-
-	IntersectTriangle(ray, bestHit, sclaedVert[0], sclaedVert[1], sclaedVert[2], FF, CW);
-	IntersectTriangle(ray, bestHit, sclaedVert[0], sclaedVert[1], sclaedVert[2], FB,CW);
-	
-	for (int i = 0; i < 3; i++) {
-
-		IntersectTriangle(ray, bestHit, vert[indexes[i]], vert[indexes[i+1]], sclaedVert[indexes[i ]], FF, CB);
-		IntersectTriangle(ray, bestHit, sclaedVert[indexes[i ]], vert[indexes[i+1]], sclaedVert[indexes[i + 1]], FF, CB);	
 
 		IntersectTriangle(ray, bestHit, vert[indexes[i]], vert[indexes[i + 1]], sclaedVert[indexes[i]], FB, CB);
-		IntersectTriangle(ray, bestHit, sclaedVert[indexes[i ]], vert[indexes[i+1]], sclaedVert[indexes[i + 1]], FB, CB);
+		IntersectTriangle(ray, bestHit, sclaedVert[indexes[i]], vert[indexes[i + 1]], sclaedVert[indexes[i + 1]], FB, CB);
 	}
+
 }
 
+//Draw a triangle pyramid
 void DrawTrianglePyramid(Ray ray, inout RayHit bestHit) {
 	float3 k0, k1, k2, k3;
 	float pointMulti = 150;
@@ -376,9 +251,10 @@ void DrawTrianglePyramid(Ray ray, inout RayHit bestHit) {
 	k2 = float3(0, pointMulti, 0);
 	k3 = float3(0, 0, pointMulti);
 
-	DrawTriangle(ray, bestHit, k0, k1, k2, FF); //OK
-	DrawTriangle(ray, bestHit, k0, k3, k1, FF); //OK
-	DrawTriangle(ray, bestHit, k0, k2, k3, FF); //OK
+
+	DrawTriangle(ray, bestHit, k0, k1, k2, FF); 
+	DrawTriangle(ray, bestHit, k0, k3, k1, FF); 
+	DrawTriangle(ray, bestHit, k0, k2, k3, FF); 
 	DrawTriangle(ray, bestHit, k1, k3, k2, FF);
 }
 
@@ -386,10 +262,8 @@ void DrawTrianglePyramid(Ray ray, inout RayHit bestHit) {
 static const int multi = 20;
 
 static const float PHI = 1.618;
-static float3 vertices[20] = {
-
+static float3 vertices[20] = {  //vertex points of dodecahedron
 	float3(1,-1 ,-1) * multi, //0 
-
 	float3(1 ,-1 ,1) * multi, //1
 	float3(1 ,1 ,-1) * multi, //2
 	float3(1 ,1 ,1) * multi,  //3
@@ -397,17 +271,14 @@ static float3 vertices[20] = {
 	float3(-1 ,-1 ,1) * multi, //5
 	float3(-1 ,1 ,-1) * multi, //6
 	float3(-1 ,1 ,1) * multi, //7
-
 	float3(0, PHI ,-(1 / PHI)) * multi,  //8
 	float3(0, -PHI ,-(1 / PHI)) * multi,  //9
 	float3(0, -PHI ,(1 / PHI)) * multi,  //10
 	float3(0, PHI ,(1 / PHI)) * multi,  //11
-
 	float3(-(1 / PHI) , 0, PHI) * multi,  //12
 	float3(-(1 / PHI) , 0, -PHI) * multi,  //13
 	float3((1 / PHI) , 0, -PHI) * multi,  //14
 	float3((1 / PHI) , 0, PHI) * multi,  //15
-
 	float3(PHI ,  1 / PHI , 0) * multi,  //16
 	float3(PHI , -1 / PHI , 0) * multi,  //17
 	float3(-PHI , -1 / PHI , 0) * multi,  //18
@@ -416,9 +287,7 @@ static float3 vertices[20] = {
 
 void DrawDodecahedron(Ray ray, inout RayHit bestHit)
 {
-
-	
-
+	//Twelve faces of dodecahedron 
 	DrawPentagon(ray, bestHit, vertices[4], vertices[9], vertices[0], vertices[14], vertices[13], FF); 
 	DrawPentagon(ray, bestHit, vertices[5], vertices[10], vertices[9], vertices[4], vertices[18], FF);
 	DrawPentagon(ray, bestHit, vertices[3], vertices[11], vertices[8], vertices[2], vertices[16], FF); 
@@ -431,8 +300,6 @@ void DrawDodecahedron(Ray ray, inout RayHit bestHit)
 	DrawPentagon(ray, bestHit, vertices[19], vertices[18], vertices[4], vertices[13], vertices[6], FF); 
 	DrawPentagon(ray, bestHit, vertices[12], vertices[15], vertices[1], vertices[10], vertices[5], FF); 
 	DrawPentagon(ray, bestHit, vertices[1], vertices[17], vertices[0], vertices[9], vertices[10], FF);
-
-
 }
 
 
@@ -440,22 +307,9 @@ void DrawDodecahedron(Ray ray, inout RayHit bestHit)
 //-------------------------------------
 //- TRACE
 
-RayHit Trace(Ray ray)
+RayHit Trace(Ray ray)  //tests the best hit on drawn objects
 {
 	RayHit bestHit = CreateRayHit();
-
-	// Trace ground plane
-//	IntersectGroundPlane(ray, bestHit);
-
-	// Trace triangle
-
-
-	
-
-	//DrawTrianglePyramid(ray, bestHit);
-	//DrawSampleTriangle(ray, bestHit);
-
-	//DrawSamplePentagon(ray, bestHit);
 	DrawDodecahedron(ray, bestHit);
 	return bestHit;
 }
@@ -474,17 +328,16 @@ float3 Shade(inout Ray ray, RayHit hit)
 		ray.energy *= hit.specular;
 
 		// Return a diffuse-shaded color
-		return saturate(dot(hit.normal, _DirectionalLight.xyz) * -1) * _DirectionalLight.w * hit.albedo;
+		return saturate(dot(hit.normal, _PointLight.xyz) * -1) * _PointLight.w * hit.albedo;
 	}
 	else
 	{
 		
 		// Erase the ray's energy - the sky doesn't reflect anything
 		ray.energy = 0.0f;
-		//return float3(1,0.3,0.3); //00 eklersek arka plan bele oluyor
 		// Sample the skybox and write it
-		float theta = acos(ray.direction.y); /// -PI;
-		float phi = atan2(ray.direction.x, -ray.direction.z);// / -PI * 0.5f;
+		float theta = acos(ray.direction.y); 
+		float phi = atan2(ray.direction.x, -ray.direction.z);
 		return _SkyboxTexture.SampleLevel(sampler_SkyboxTexture, float2(phi, theta), 0).xyz* 1.8f;
 	}
 }
@@ -509,12 +362,12 @@ void CSMain(uint3 id : SV_DispatchThreadID)
 	// Trace and shade the ray
 	float3 result = float3(0, 0, 0);
 
-	for (int i = 0; i < 6; i++)
+	for (int i = 0; i < 8; i++) //bounces
 	{
 		RayHit hit = Trace(ray);
 		result += ray.energy * Shade(ray, hit);
 
-		if (!any(ray.energy))
+		if (!any(ray.energy)) //no enegry left cannot bounce anymore
 			break;
 	}
 	Result[id.xy] = float4(result.x,result.y,result.z, 1);

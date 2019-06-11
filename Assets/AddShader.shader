@@ -1,4 +1,4 @@
-﻿Shader "Hidden/AddShader2"
+﻿Shader "Hidden/AddShader"
 {
 	Properties
 	{

@@ -214,7 +214,7 @@ Light:
   serializedVersion: 8
   m_Type: 2
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_Intensity: 0.47
+  m_Intensity: 0.6
   m_Range: 7.9
   m_SpotAngle: 54
   m_CookieSize: 10
@@ -376,11 +376,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   RayTracingShader: {fileID: 7200000, guid: 48ca0e390c06b834698e3b663adf2590, type: 3}
   SkyboxTexture: {fileID: 2800000, guid: 9767e3cf51b6801419b7fea86f28787c, type: 3}
-  DirectionalLight: {fileID: 296796981}
-  SphereRadius: {x: 3, y: 8}
-  SpheresMax: 1
-  SquaresMax: 0
-  SpherePlacementRadius: 20
+  PointLight: {fileID: 296796981}
 --- !u!81 &1509892076
 AudioListener:
   m_ObjectHideFlags: 0
